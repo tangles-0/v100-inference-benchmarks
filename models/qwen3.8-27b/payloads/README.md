@@ -1,6 +1,6 @@
 # Benchmark payloads
 
-These payloads are the canonical cross-stack requests for this host.
+These payloads are the canonical cross-stack requests for Qwen3.8-27B.
 
 - `serial-256.json`: fixed-length single-stream decode. Run one unreported
   warm-up, then five measured requests. For measured run `n`, replace the

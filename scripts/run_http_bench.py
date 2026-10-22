@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Run the canonical completion payloads against an OpenAI-compatible server."""
 
+import argparse
 import concurrent.futures
 import json
 import os
@@ -9,17 +10,34 @@ import statistics
 import time
 import urllib.request
 
-ROOT = Path(__file__).parent
-URL = os.getenv("BENCH_URL", "http://127.0.0.1:8010/v1/completions")
-MODEL = os.getenv("BENCH_MODEL", "qwen3.8-27b")
+REPO_ROOT = Path(__file__).parents[1]
+DEFAULT_PAYLOADS = REPO_ROOT / "models/qwen3.8-27b/payloads"
+
+parser = argparse.ArgumentParser()
+parser.add_argument(
+    "--url",
+    default=os.getenv("BENCH_URL", "http://127.0.0.1:8010/v1/completions"),
+)
+parser.add_argument("--model", default=os.getenv("BENCH_MODEL", "qwen3.8-27b"))
+parser.add_argument(
+    "--serial-payload",
+    type=Path,
+    default=DEFAULT_PAYLOADS / "serial-256.json",
+)
+parser.add_argument(
+    "--batch-payload",
+    type=Path,
+    default=DEFAULT_PAYLOADS / "batch-4x256.jsonl",
+)
+args = parser.parse_args()
 
 
 def request(payload: dict) -> tuple[int, float]:
     payload = dict(payload)
-    payload["model"] = MODEL
+    payload["model"] = args.model
     started = time.perf_counter()
     req = urllib.request.Request(
-        URL,
+        args.url,
         data=json.dumps(payload).encode(),
         headers={"Content-Type": "application/json"},
     )
@@ -29,7 +47,7 @@ def request(payload: dict) -> tuple[int, float]:
     return result["usage"]["completion_tokens"], elapsed
 
 
-serial_template = json.loads((ROOT / "payloads/serial-256.json").read_text())
+serial_template = json.loads(args.serial_payload.read_text())
 request(serial_template)  # unreported warm-up
 serial: list[tuple[int, float]] = []
 for run in range(5):
@@ -49,7 +67,7 @@ print(
 
 batch_templates = [
     json.loads(line)
-    for line in (ROOT / "payloads/batch-4x256.jsonl").read_text().splitlines()
+    for line in args.batch_payload.read_text().splitlines()
 ]
 batch_results: list[tuple[int, float]] = []
 for wave in range(4):

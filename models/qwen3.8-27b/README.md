@@ -12,13 +12,13 @@ Date: 2026-10-22
   concurrent path: **278-292 aggregate tok/s at C4**. Raising the QUASAR 8K
   profile to a 0.90 GPU-memory budget reaches **230.95 aggregate tok/s**; the
   engine ran three short requests together and queued the fourth.
+- The 1Cat-native uncensored mixed quant reaches **79.11 tok/s serial** and
+  **276.26 aggregate tok/s at true C4** with a 0.90 memory budget.
 - GGUF is not presently a route to QUASAR parity. The optimized GGUF work is
   newer than 1.5.1 and its own four-V100 figures remain roughly 12-19% behind
   native NVFP4.
-- NInfer's V100 port cannot be reproduced on this host as-is: it requires the
-  CUDA 12.8 toolkit and a single 32 GiB V100-class device, while this host has
-  CUDA toolkit 12.0 and 16 GiB V100s. Updating the fork is a substantial
-  re-port, not a small merge.
+- NInfer's V100 port requires CUDA 12.8 and a single 32 GiB V100-class
+  device. Updating its stale fork is a substantial re-port, not a small merge.
 - No host-RAM limit was encountered. A simple offline bit-format conversion
   cannot create QUASAR weights: QUASAR is a QAT-trained representation. GGUF
   conversion is possible, but is not expected to improve speed over the
@@ -27,7 +27,6 @@ Date: 2026-10-22
 ## Hardware and measurement
 
 - GPUs: 4 x Tesla V100-SXM2-16GB, driver 580.178.04.
-- The RTX 3090 and RTX 3080 were not used.
 - Canonical requests and exact procedure are in [`payloads/`](payloads/).
 - Runner: [`scripts/run_http_bench.py`](../../scripts/run_http_bench.py).
 - Serial: one unreported warm-up followed by five fixed 256-token requests.
@@ -40,11 +39,12 @@ Date: 2026-10-22
 
 Stack:
 
-- `/home/tangles/1cat-vllm/.venv`
 - `vllm 1.5.1`, PyTorch `2.10.0+cu128`, CUDA runtime 12.8
 - TP4, Flash-Attention-V100, QPN2 NVFP4, DFlash2 K=7, E4M3 KV
-- Target: `/mnt/nvme/Qwen3.8-27B-QUASAR-NVFP4`
-- Draft: `/mnt/nvme/Qwen3.8-27B-DFlash2`
+- Target:
+  [`QUASAR-QAT/Qwen3.8-27B-QUASAR-NVFP4`](https://huggingface.co/QUASAR-QAT/Qwen3.8-27B-QUASAR-NVFP4)
+- Draft:
+  [`z-lab/Qwen3.8-27B-DFlash2`](https://huggingface.co/z-lab/Qwen3.8-27B-DFlash2)
 - The matching NInfer manifest identifies source revisions
   `QUASAR-QAT/Qwen3.8-27B-QUASAR-NVFP4@d8e6fbf` and
   `z-lab/Qwen3.8-27B-DFlash2@50307d4`.
@@ -83,15 +83,27 @@ the altered page contract fell off the QPN2 route and failed while trying the
 Marlin fallback (`size_n=4120` not divisible by 64). This is a runtime
 contract limitation, not a model or host-RAM failure.
 
-## Existing uncensored checkpoint comparison
+## Uncensored checkpoint comparison
 
-These earlier matched measurements came from the isolated 1.5.1 port in
-`/home/tangles/v100-skinny-151-port`.
+| Stack and checkpoint | GPU memory | Serial aggregate | Warm C4 aggregate |
+|---|---:|---:|---:|
+| v100-skinny / 1Cat-vLLM 1.2.2, [NVFP4+FP8 ModelOpt](https://huggingface.co/tangles/Qwen3.8-27B-Uncensored-NVFP4-v100-skinny) | production profile | 113.70 | 29.31-31.77 |
+| isolated 1.5.1 port, [same NVFP4+FP8 checkpoint](https://huggingface.co/tangles/Qwen3.8-27B-Uncensored-NVFP4-v100-skinny), FP8 KV | 0.83 | 92.05 | 278.47-291.84 |
+| stock 1.5.1, [MLP NVFP4 + BF16 attention/GDN](https://huggingface.co/tangles/Qwen3.8-27B-Uncensored-NVFP4-1Cat), FP8 KV, MTP K=3 | 0.83 | 77.04 | 137.96 |
+| stock 1.5.1, [MLP NVFP4 + BF16 attention/GDN](https://huggingface.co/tangles/Qwen3.8-27B-Uncensored-NVFP4-1Cat), FP8 KV, MTP K=3 | 0.90 | **79.11** | **276.26** |
 
-| Stack and checkpoint | Serial aggregate | Warm C4 aggregate |
-|---|---:|---:|
-| v100-skinny / 1Cat-vLLM 1.2.2, uncensored mixed NVFP4+FP8 | 113.70 | 29.31-31.77 |
-| isolated 1.5.1 port, same uncensored checkpoint, FP8 KV | 92.05 | 278.47-291.84 |
+Units are tok/s. Raw results for the 1Cat-native checkpoint:
+
+- [`uncensored-1cat-mixed-http-bench.txt`](raw/uncensored-1cat-mixed-http-bench.txt)
+- [`uncensored-1cat-mixed-090-http-bench.txt`](raw/uncensored-1cat-mixed-090-http-bench.txt)
+- [`uncensored-1cat-mixed-natural-96.json`](raw/uncensored-1cat-mixed-natural-96.json)
+
+The 1Cat-native checkpoint contains 192 NVFP4 MLP projections and leaves
+attention, GDN, `lm_head`, vision, and MTP in BF16. It loaded through
+TurboMind NVFP4 and used 9.4 GiB per rank. At a 0.83 budget, 0.68 GiB of KV
+cache admitted only two benchmark requests at once. At 0.90, 1.79 GiB of KV
+cache admitted all four, and logs confirmed `Running: 4` with no waiting.
+Native-MTP draft acceptance was about 60%.
 
 The 1.5.1 port keeps the relevant E5 fixes from
 [v100-skinny PR #9](https://github.com/dnv2003/v100-skinny/pull/9), including
@@ -120,9 +132,7 @@ V100-SXM2-32GB cards, TP4, without MTP, reports:
 
 That leaves GGUF around 12-19% slower, even on current development code and
 32 GiB cards. Development GGUF+DFlash2 profiling exists, but not a released,
-comparable end-to-end result. There are no local GGUF weights, so downloading
-another large model and building an unreleased stack is not justified by the
-available evidence.
+comparable end-to-end result.
 
 References:
 
@@ -131,9 +141,6 @@ References:
 
 ## NInfer V100
 
-The research checkout is retained locally at `tools/ninfer-v100/` and is not
-part of this repository.
-
 - Fork: [`geoffwatts/ninfer-v100`](https://github.com/geoffwatts/ninfer-v100)
   at `b37d0dd3e1163b9d802d8bccfa89918bf68d793e`
 - Upstream: [`Neroued/ninfer`](https://github.com/Neroued/ninfer)
@@ -141,30 +148,20 @@ part of this repository.
 - Divergence: 32 fork-only commits and 206 upstream-only commits
 - A synthetic merge reported **207 conflicts**. Updating this fork means
   reapplying the V100 backend to a changed runtime architecture.
-
-Local artifact:
-
-- `/mnt/nvme/Qwen3.8-27B-QUASAR-NVFP4-NInfer/qwen3_8_27b_nvfp4.ninfer`
-- 19,782,432,752 bytes, container v3
+- The evaluated artifact is 19,782,432,752 bytes, container v3
 - SHA-256
   `29bd2a543dd779e28fa6cbc4ff532447e3f861018384b3c5e4a8b98ba4b2587b`
 - Includes text, vision, MTP, and DFlash2; its manifest says the v2-to-v3
   upgrade preserved all tensor payloads and did not requantize weights.
 
-No local benchmark was produced. The fork explicitly requires CUDA toolkit
-12.8 because CUDA 13 removed Volta offline compilation. This host has only
-`nvcc 12.0`; Ninja and the FFmpeg development headers are also absent.
-There are no release binaries or CI artifacts to use instead. More
-importantly, NInfer is a one-GPU resident runtime and its published V100
-qualification uses V100-PCIe-32GB. The 19.8 GB artifact plus runtime buffers
-is not a viable resident load on any of this host's 16 GiB V100s.
+No benchmark was produced. NInfer is a one-GPU resident runtime and its
+published qualification uses a 32 GiB V100. The 19.8 GB artifact plus runtime
+buffers cannot fit a 16 GiB V100.
 
 Published figures such as 218.98 tok/s are a short-context, highly
 predictable, single-32GB-V100 ceiling and are not comparable to this HTTP
 payload. Its own varied-text figures are much lower (roughly 68 tok/s at 2K,
-93 at 8K, 55 at 32K, and 44 at 150K). Renting a 32 GiB V100 with CUDA 12.8
-could reproduce the engine, but would not establish a deployable path for
-this server.
+93 at 8K, 55 at 32K, and 44 at 150K).
 
 ## Strata-V100
 
@@ -181,30 +178,16 @@ V100s. The fork also differs from its upstream by hundreds of commits.
 Setting it up would answer a different capacity/long-context question, so it
 was not benchmarked here.
 
-## Abliterated INT8 W8A16 DFlash2 checkpoint
-
-[`lued/Qwen3.8-27B-huihui-abliterated-INT8-W8A16-DFlash2`](https://huggingface.co/lued/Qwen3.8-27B-huihui-abliterated-INT8-W8A16-DFlash2)
-is about 28 GiB for the target plus about 2.02 GiB for DFlash2 and is intended
-for a patched dual-RTX-3090 stack. It may fit by TP4 across these V100s, but
-1Cat's fast V100 paths are QPN2 NVFP4 and QPN8 FP8, not generic W8A16.
-Consequently it would likely use generic kernels and trail both native
-QUASAR and the existing mixed checkpoint.
-
-It is potentially useful as an uncensoring/quality reference on dual 3090s,
-not as the likely fastest V100 deployment. It was not downloaded.
-
 ## Recommendation
 
-For this server, retain two practical choices:
-
-1. Current v100-skinny for the fastest single interactive stream.
-2. The isolated 1.5.1 mixed-checkpoint port for multi-agent throughput, after
-   its context-capacity and quality gates are accepted.
+The current v100-skinny stack remains the fastest tested uncensored option for
+one interactive stream. For concurrent workloads, both 1.5.1 uncensored
+routes reach about 276-292 aggregate tok/s when given enough KV-cache budget.
+The MLP-NVFP4/BF16 checkpoint needs a 0.90 budget to admit true C4 and is
+about 14 tok/s slower than native QUASAR at C1.
 
 Native QUASAR+DFlash2 establishes the performance ceiling but does not solve
-the uncensored-weight requirement. Neither GGUF, NInfer, Strata, nor generic
-INT8 currently offers a credible faster uncensored path on four 16 GiB
-V100s. Do not spend on a requantization job unless the source format and
-runtime kernel target are first shown to be losslessly compatible; a
-QUASAR-format checkpoint would require the unpublished training/QAT process,
-not a simple format conversion.
+the uncensored-weight requirement. GGUF, NInfer, and Strata do not currently
+offer a credible faster uncensored path on four 16 GiB V100s. A QUASAR-format
+checkpoint would require the unpublished training/QAT process, not a simple
+format conversion.

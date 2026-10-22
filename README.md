@@ -22,8 +22,6 @@ models/
     raw/
 scripts/
   run_http_bench.py
-tools/                 # local research checkouts; ignored
-local-artifacts/       # server logs and diagnostics; ignored
 ```
 
 Throughput figures are completion tokens divided by client wall time unless
