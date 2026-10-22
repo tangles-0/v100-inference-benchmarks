@@ -1,0 +1,11 @@
+serial run=0 tokens=256 elapsed=1.6927s
+serial run=1 tokens=256 elapsed=1.7609s
+serial run=2 tokens=256 elapsed=1.9153s
+serial run=3 tokens=256 elapsed=1.9468s
+serial run=4 tokens=256 elapsed=1.8791s
+serial summary aggregate=139.21 median=136.23 tok/s
+batch wave=0 tokens=1024 elapsed=7.2399s aggregate=141.44 tok/s
+batch wave=1 tokens=1024 elapsed=7.0196s aggregate=145.88 tok/s
+batch wave=2 tokens=1024 elapsed=7.0740s aggregate=144.76 tok/s
+batch wave=3 tokens=1024 elapsed=7.1531s aggregate=143.16 tok/s
+batch summary aggregate=144.59 tok/s (three measured waves)

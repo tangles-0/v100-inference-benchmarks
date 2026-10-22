@@ -1,0 +1,8 @@
+{
+  "model": "qwen3.8-27b",
+  "prompt": "Benchmark case 0: produce an endless numbered list of distinct short factual statements, one per line.",
+  "temperature": 0,
+  "max_tokens": 256,
+  "ignore_eos": true,
+  "seed": 4242
+}

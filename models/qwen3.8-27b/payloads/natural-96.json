@@ -1,0 +1,7 @@
+{
+  "model": "qwen3.8-27b",
+  "prompt": "Write one concise paragraph explaining why the sky is blue.",
+  "temperature": 0,
+  "max_tokens": 96,
+  "seed": 42
+}

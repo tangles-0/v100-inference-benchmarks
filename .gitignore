@@ -1,0 +1,14 @@
+# Local research checkouts and generated diagnostics
+/tools/ninfer-v100/
+/local-artifacts/
+
+# Python and editor state
+__pycache__/
+*.py[cod]
+.venv/
+.idea/
+.vscode/
+
+# Benchmark scratch output
+*.tmp
+*.log

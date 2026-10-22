@@ -1,0 +1,4 @@
+{"model":"qwen3.8-27b","prompt":"Batch benchmark 0: produce an endless numbered list of distinct facts.","temperature":0,"max_tokens":256,"ignore_eos":true,"seed":7000}
+{"model":"qwen3.8-27b","prompt":"Batch benchmark 1: produce an endless numbered list of distinct facts.","temperature":0,"max_tokens":256,"ignore_eos":true,"seed":7001}
+{"model":"qwen3.8-27b","prompt":"Batch benchmark 2: produce an endless numbered list of distinct facts.","temperature":0,"max_tokens":256,"ignore_eos":true,"seed":7002}
+{"model":"qwen3.8-27b","prompt":"Batch benchmark 3: produce an endless numbered list of distinct facts.","temperature":0,"max_tokens":256,"ignore_eos":true,"seed":7003}
